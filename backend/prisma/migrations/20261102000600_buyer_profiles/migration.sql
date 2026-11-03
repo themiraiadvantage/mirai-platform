@@ -1,0 +1,12 @@
+BEGIN;
+CREATE TABLE "BuyerProfile" (
+ "userId" TEXT PRIMARY KEY REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+ "phone" TEXT NOT NULL DEFAULT '',
+ "location" TEXT NOT NULL DEFAULT '',
+ "notes" TEXT NOT NULL DEFAULT '',
+ "version" INTEGER NOT NULL DEFAULT 1 CHECK ("version" > 0),
+ "updatedAt" TIMESTAMP(3) NOT NULL
+);
+ALTER TABLE "ActivityEvent" DROP CONSTRAINT "ActivityEvent_category_check";
+ALTER TABLE "ActivityEvent" ADD CONSTRAINT "ActivityEvent_category_check" CHECK ("category" IN ('AUTH','STAFF','SETTINGS','ANNOUNCEMENTS','PLOTS','CO_OWNERSHIP','PAYMENTS','DOCUMENTS','BUYERS'));
+COMMIT;

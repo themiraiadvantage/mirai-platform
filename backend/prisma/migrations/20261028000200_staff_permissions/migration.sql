@@ -1,0 +1,2 @@
+ALTER TABLE "User" ADD COLUMN "staffPermissions" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "StaffInvitation" ADD COLUMN "permissions" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

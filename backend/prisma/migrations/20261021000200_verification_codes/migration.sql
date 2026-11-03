@@ -1,0 +1,3 @@
+ALTER TABLE "EmailVerification"
+ADD COLUMN "codeHash" TEXT,
+ADD COLUMN "attempts" INTEGER NOT NULL DEFAULT 0;

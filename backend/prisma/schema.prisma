@@ -1,0 +1,362 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ActivityEvent {
+  id String @id @default(uuid())
+  category String
+  action String
+  actorId String?
+  actorName String
+  actorRole String
+  targetId String?
+  targetLabel String
+  detail String
+  changes Json?
+  createdAt DateTime @default(now())
+  @@index([createdAt, id])
+  @@index([category, createdAt])
+  @@index([actorId, createdAt])
+}
+
+enum StaffRole {
+  SUPER_ADMIN
+  ADMIN
+  LISTING_MANAGER
+  VERIFICATION_REVIEWER
+  PAYMENT_SUPPORT
+  DOCUMENT_ADMINISTRATOR
+  SITE_CHECK_CONTRIBUTOR
+}
+
+model WorkspaceSettings {
+  id String @id @default("platform")
+  company String @default("MIRAI")
+  email String @default("futurewithmirai@gmail.com")
+  phone String @default("")
+  reservationFee Int @default(30000)
+  accessMonths Int @default(12)
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id String @id @default(uuid())
+  email String @unique
+  name String
+  passwordHash String
+  emailVerifiedAt DateTime?
+  staffRole StaffRole?
+  staffActive Boolean @default(false)
+  staffPermissions String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  verification EmailVerification?
+  sessions Session[]
+  invitations StaffInvitation[]
+  announcements Announcement[]
+  notifications BuyerNotification[]
+  coRequests CoRequest[]
+  coAllocations CoAllocation[]
+  reservations PlotReservation[]
+  savedPlots SavedPlot[]
+  assignedDocuments PlotAsset[] @relation("DocumentRecipient")
+  buyerProfile BuyerProfile?
+}
+
+model BuyerProfile {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone String @default("")
+  location String @default("")
+  notes String @default("")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum AnnouncementAudience {
+  ALL_BUYERS
+  SELECTED_BUYERS
+}
+
+model Announcement {
+  id String @id @default(uuid())
+  title String
+  body String
+  audience AnnouncementAudience
+  buyerIds String[] @default([])
+  status AnnouncementStatus @default(DRAFT)
+  authorId String
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  publishedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  notifications BuyerNotification[]
+  @@index([createdAt, id])
+}
+
+model BuyerNotification {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcementId String?
+  announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  title String?
+  body String?
+  href String?
+  readAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([announcementId, userId])
+  @@index([userId, createdAt, id])
+  @@index([userId, readAt])
+}
+
+model StaffInvitation {
+  id String @id @default(uuid())
+  email String @unique
+  name String
+  role StaffRole
+  permissions String[] @default([])
+  tokenHash String @unique
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime @default(now())
+  invitedById String?
+  invitedBy User? @relation(fields: [invitedById], references: [id], onDelete: Restrict)
+}
+
+model EmailVerification {
+  id String @id @default(uuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  codeHash String?
+  attempts Int @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  sentAt DateTime?
+}
+
+model Session {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId String
+  refreshTokenHash String @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model PropertyPlot {
+  id String @id @default(uuid())
+  code String @unique
+  title String
+  description String
+  location String
+  lga String
+  state String
+  size Int
+  price Decimal @db.Decimal(16, 2)
+  legalFee Decimal @db.Decimal(16, 2)
+  surveyFee Decimal @db.Decimal(16, 2)
+  documentationFee Decimal @db.Decimal(16, 2)
+  reservationFee Decimal @db.Decimal(16, 2)
+  accessMonths Int
+  publication String @default("Draft")
+  availability String @default("Available")
+  verification String @default("unchecked")
+  coEnabled Boolean @default(false)
+  coMonths Int @default(3)
+  coDepositPercent Int @default(10)
+  version Int @default(1)
+  details Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  assets PlotAsset[]
+  requests CoRequest[]
+  matches CoMatch[]
+  reservations PlotReservation[]
+  savedBy SavedPlot[]
+  @@index([publication, createdAt, id])
+}
+
+model SavedPlot {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plotId String
+  plot PropertyPlot @relation(fields: [plotId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([userId, plotId])
+  @@index([userId, createdAt, id])
+}
+
+model PlotAsset {
+  id String @id @default(uuid())
+  plotId String
+  plot PropertyPlot @relation(fields: [plotId], references: [id], onDelete: Restrict)
+  name String
+  mime String
+  kind String
+  data Bytes?
+  cloudinaryPublicId String? @unique
+  cloudinaryUrl String?
+  cloudinaryFormat String?
+  cloudinaryVersion Int?
+  category String @default("General")
+  reviewStatus String @default("Awaiting review")
+  reviewerName String?
+  reviewedAt DateTime?
+  notes String @default("")
+  recipientId String?
+  recipient User? @relation("DocumentRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  recordVersion Int @default(1)
+  fileVersion Int @default(1)
+  updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  allocations CoAllocation[]
+  versions DocumentVersion[]
+  @@index([plotId])
+  @@index([recipientId])
+}
+
+model DocumentVersion {
+  id String @id @default(uuid())
+  assetId String
+  asset PlotAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  number Int
+  name String
+  mime String
+  data Bytes
+  size Int
+  uploadedBy String
+  createdAt DateTime @default(now())
+  @@unique([assetId, number])
+}
+
+model PlotReservation {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plotId String
+  plot PropertyPlot @relation(fields: [plotId], references: [id], onDelete: Restrict)
+  status String @default("PENDING")
+  amountKobo BigInt
+  accessMonths Int
+  termsVersion String
+  acceptedAt DateTime
+  snapshot Json
+  checkoutExpiresAt DateTime
+  accessExpiresAt DateTime?
+  reviewReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  payment ReservationPayment?
+  @@index([userId, createdAt, id])
+  @@index([status, checkoutExpiresAt])
+}
+
+model ReservationPayment {
+  id String @id @default(uuid())
+  reservationId String @unique
+  reservation PlotReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  reference String @unique
+  amountKobo BigInt
+  currency String @default("NGN")
+  status String @default("PENDING")
+  mode String @default("test")
+  authorizationUrl String?
+  providerId String? @unique
+  paidAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([createdAt, id])
+}
+
+model CoPolicy {
+  id String @id @default(uuid())
+  version Int @unique
+  title String
+  body String
+  createdAt DateTime @default(now())
+  requests CoRequest[]
+}
+
+model CloudinaryCleanup {
+  publicId String @id
+  notBefore DateTime
+  createdAt DateTime @default(now())
+  @@index([notBefore])
+}
+
+model CoRequest {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plotId String
+  plot PropertyPlot @relation(fields: [plotId], references: [id], onDelete: Restrict)
+  policyId String
+  policy CoPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  offer Json
+  preference String
+  status String @default("WAITING")
+  matchId String?
+  match CoMatch? @relation(fields: [matchId], references: [id], onDelete: Restrict)
+  acceptedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  contributions CoContribution[]
+  @@index([userId, createdAt, id])
+  @@index([plotId, status])
+  @@index([matchId])
+}
+
+model CoMatch {
+  id String @id @default(uuid())
+  plotId String
+  plot PropertyPlot @relation(fields: [plotId], references: [id], onDelete: Restrict)
+  status String @default("PROPOSED")
+  agreement String
+  notes String @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  requests CoRequest[]
+  allocations CoAllocation[]
+}
+
+model CoContribution {
+  id String @id @default(uuid())
+  requestId String
+  request CoRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  amount Decimal @db.Decimal(16, 2)
+  reference String @unique
+  receivedAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model CoAllocation {
+  id String @id @default(uuid())
+  matchId String
+  match CoMatch @relation(fields: [matchId], references: [id], onDelete: Restrict)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  portion String
+  documentId String
+  document PlotAsset @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  @@unique([matchId, userId])
+}
